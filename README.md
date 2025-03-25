@@ -89,6 +89,81 @@ ZFS’s recordsize property sets the maximum block size that can be allocated fo
 
 In our tool, we’ve incorporated this behavior into the wasted space analysis. When simulating ZFS allocation, for files smaller than a candidate recordsize, we calculate the allocated size as the smallest power-of-two (not exceeding the candidate) that can accommodate the file. For larger files, we assume that space is allocated in multiples of the candidate recordsize. This model helps ensure that the recommended recordsize minimizes wasted space across your dataset, especially when there is a mix of small and large files.
 
+## Example Output
+
+```
+└[~]> ~/zfs-recordsize-suggester/zfs-recordsize-suggester.py ~/
+Scanning directory: /Users/mario/
+
+
+File Size Breakdown:
++--------------------------+-------------+-------------+
+| File Sizes               |       Files |   Percent ↓ |
++--------------------------+-------------+-------------+
+| 4K–8K                    |       50166 |      24.81% |
+| <1K                      |       45039 |      22.27% |
+| 8K–16K                   |       30520 |      15.09% |
+| 2K–4K                    |       22805 |      11.28% |
+| 1K–2K                    |       16503 |       8.16% |
+| 16K–32K                  |       11118 |       5.50% |
+| 32K–64K                  |        7557 |       3.74% |
+| 64K–128K                 |        5629 |       2.78% |
+| 128K–256K                |        2968 |       1.47% |
+| 512K–1M                  |        2779 |       1.37% |
+| 256K–512K                |        2326 |       1.15% |
+| 1M–2M                    |        1912 |       0.95% |
+| 2M–4M                    |        1484 |       0.73% |
+| 4M–8M                    |         683 |       0.34% |
+| >16M                     |         411 |       0.20% |
+| 8M–16M                   |         335 |       0.17% |
++--------------------------+-------------+-------------+
+
+Wasted Space Analysis:
++------------+----------------------+--------------+
+| Candidate  |     Total Wasted     |  Overhead ↑  |
++------------+----------------------+--------------+
+|     8K     |      453.03 MiB      |        0.46% |
+|    16K     |      616.00 MiB      |        0.62% |
+|    32K     |      847.08 MiB      |        0.86% |
+|    64K     |       1.13 GiB       |        1.17% |
+|    128K    |       1.58 GiB       |        1.62% |
+|    256K    |       2.28 GiB       |        2.33% |
+|    512K    |       3.36 GiB       |        3.39% |
+|     1M     |       4.75 GiB       |        4.73% |
+|     2M     |       6.50 GiB       |        6.36% |
+|     4M     |       8.24 GiB       |        7.93% |
+|     8M     |      10.10 GiB       |        9.55% |
+|    16M     |      12.24 GiB       |       11.34% |
++------------+----------------------+--------------+
+
+Mode Candidate Details (Buckets considered until reaching 50% of files):
+  Bucket: 4K–8K -> Candidate: 8K (50166 files)
+  Bucket: <1K -> Candidate: 8K (45039 files)
+  Bucket: 8K–16K -> Candidate: 16K (30520 files)
+Total files in selected buckets: 125725 (>= 50% of total files)
+
+Statistics:
+Total files: 202235
+Total directories: 50394
+Total Dataset Scanned Size: 95.71 GiB (base 2) / 102.77 GB (base 10) / 822.17 Gb
+Average file size: 496.27 KiB
+Median file size:  4.82 KiB
+
+Recommendation:
+Mode candidate (50% accumulation) is: 16K
+Wasted space candidate (lowest overhead) is: 8K
+Final recommended ZFS recordsize for a dataset like this is:
++--------------------------------------+
+|                 16K                  |
++--------------------------------------+
+
+Explanation:
+  - Mode candidate: determined by accumulating buckets (sorted by frequency) until reaching 50% of files,
+    then choosing the candidate (upper limit) of the highest bucket in that selection.
+  - Wasted space candidate: the recordsize candidate that minimizes wasted space overhead (simulated allocation).
+  The final recommendation is the larger (in bytes) of these two.
+```
+
 ## License
 
 This project is licensed under the MIT License.
