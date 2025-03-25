@@ -17,6 +17,14 @@
    - The candidate from the wasted space analysis (with the lowest overhead).  
    The recommendation is the one with the larger byte value, ensuring that larger files incur less waste.
 
+## Important Resources on ZFS Recordsize
+
+Please consider reviewing these great articles on how ZFS handles `recordsize` for Datasets!
+
+* https://klarasystems.com/articles/tuning-recordsize-in-openzfs/#:~:text=The%20recordsize%20property%20sets%20the%20maximum
+* https://www.high-availability.com/docs/ZFS-Tuning-Guide/#:~:text=ZFS%20on%20linux%20provides%20an,time%20the%20file%20is%20accessed
+* https://openzfs.github.io/openzfs-docs/Performance%20and%20Tuning/Workload%20Tuning.html
+
 ## How to Run
 
 Ensure you have Python 3 installed. You can run the tool from the command line as follows:
@@ -25,8 +33,8 @@ Ensure you have Python 3 installed. You can run the tool from the command line a
 ./zfs-recordsize-suggester.py [directory]
 ```
 
-	*	If you specify a directory, the tool will scan that directory.
-	*	If no directory is specified or if you pass -h or --help, a help menu is displayed.
+*	If you specify a directory, the tool will scan that directory.
+*	If no directory is specified or if you pass -h or --help, a help menu is displayed.
 
 ### Output
 
@@ -74,10 +82,10 @@ The tool prints detailed mode candidate calculations (i.e., which buckets were c
 
 ZFS’s recordsize property sets the maximum block size that can be allocated for data in a dataset. This means that:
 
-	*	For large files:
-		* ZFS writes data in blocks that are up to the recordsize value. If a file’s size exceeds the recordsize, ZFS will split the file into multiple blocks, each up to the maximum size.
-	*	For small files:
-		* ZFS does not waste space by always allocating the full recordsize. Instead, it allocates a smaller block that is closer to the actual file size—typically the smallest power-of-two (with a minimum of 512 B) that is large enough to hold the file. This minimizes wasted space.
+*	For large files:
+	* ZFS writes data in blocks that are up to the recordsize value. If a file’s size exceeds the recordsize, ZFS will split the file into multiple blocks, each up to the maximum size.
+*	For small files:
+	* ZFS does not waste space by always allocating the full recordsize. Instead, it allocates a smaller block that is closer to the actual file size—typically the smallest power-of-two (with a minimum of 512 B) that is large enough to hold the file. This minimizes wasted space.
 
 In our tool, we’ve incorporated this behavior into the wasted space analysis. When simulating ZFS allocation, for files smaller than a candidate recordsize, we calculate the allocated size as the smallest power-of-two (not exceeding the candidate) that can accommodate the file. For larger files, we assume that space is allocated in multiples of the candidate recordsize. This model helps ensure that the recommended recordsize minimizes wasted space across your dataset, especially when there is a mix of small and large files.
 
