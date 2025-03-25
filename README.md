@@ -40,14 +40,18 @@ Ensure you have Python 3 installed. You can run the tool from the command line a
 ### Output
 
 The program outputs four main sections:
-	1.	File Size Breakdown:
-A table showing file size buckets (with a reduced “File Sizes” column), the number of files in each bucket, and the percentage of the total.
-	2.	Wasted Space Analysis:
-A table displaying candidate recordsize values (from 8K up to 16M) along with the simulated total wasted space and overhead percentage. The header for Overhead includes an up arrow (↑) to indicate that lower overhead is better. The candidate with the lowest overhead is highlighted in green.
-	3.	Statistics:
-Displays the total number of files and directories, as well as the average and median file sizes (in human‑readable format).
-	4.	Final Recommendation:
-The tool prints detailed mode candidate calculations (i.e., which buckets were considered to cover 50% of the files) and then shows the final recommended ZFS recordsize in a green box.
+
+1.	File Size Breakdown:
+		A table showing file size buckets (with a reduced “File Sizes” column), the number of files in each bucket, and the percentage of the total.
+
+2.	Wasted Space Analysis:
+		A table displaying candidate recordsize values (from 8K up to 16M) along with the simulated total wasted space and overhead percentage. The header for Overhead includes an up arrow (↑) to indicate that lower overhead is better. The candidate with the lowest overhead is highlighted in green.
+
+3.	Statistics:
+		Displays the total number of files and directories, as well as the average and median file sizes (in human‑readable format).
+
+4.	Final Recommendation:
+		The tool prints detailed mode candidate calculations (i.e., which buckets were considered to cover 50% of the files) and then shows the final recommended ZFS recordsize in a green box.
 
 ## Calculation Logic
 
