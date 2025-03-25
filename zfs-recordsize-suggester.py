@@ -11,26 +11,21 @@ Usage:
     zfs-recordsize-suggester.py [directory]
 
 If [directory] is provided, the program scans that directory.
-If no directory is provided, or if -h/--help is passed, this help menu is shown.
+If no directory is provided or if -h/--help is passed, this help menu is shown.
 
 Output:
-  1. File Size Breakdown: A table of file size buckets (with colors), file counts, and percentages.
+  1. File Size Breakdown: A table showing file size buckets, file counts, and percentages.
   2. Wasted Space Analysis: For candidate recordsize values (from 8K up to 16M), the program simulates ZFS allocation,
-     calculates total wasted space and overhead (unused allocation percentage). The candidate with the lowest overhead is highlighted.
-  3. Statistics: Total files, directories, average and median file sizes.
-  4. Final Recommendation: Based on a "mode candidate" computed by accumulating the most frequent buckets until at least 50%
-     of the files are reached and the wasted space candidate, the program recommends a ZFS recordsize.
+     calculates total wasted space and overhead percentage for each candidate. The candidate with the lowest overhead is highlighted.
+  3. Statistics: Displays total files, total directories, the total dataset size (in base 2, base 10, and in gigabits),
+     and the average and median file sizes.
+  4. Final Recommendation: The recommended recordsize is determined by comparing the mode candidate (from the buckets covering ≥50% of files)
+     and the wasted space candidate (with the lowest overhead). The final recommendation is the larger (in bytes) of these two.
 
 Notes:
-  - The mode candidate is determined by taking the upper limit candidate of the buckets that together contain ≥50% of the files.
-  - The wasted space analysis simulates ZFS’s block allocation: files larger than a candidate are allocated in multiples of that candidate;
-    for smaller files, the allocation is the smallest power-of-two (minimum 512B) that is at least the file size but not exceeding the candidate.
-  - The final recommendation is the maximum (in bytes) of the mode candidate and the wasted-space candidate.
+  - The simulation of ZFS allocation models that for files smaller than the candidate recordsize, ZFS allocates the smallest power‑of‑two (minimum 512 B)
+    that is at least the file size (but not exceeding the candidate).
   - This tool supports candidate recordsize values up to 16M (assuming your ZFS pool is configured with large_blocks enabled).
-
-Examples:
-    zfs-recordsize-suggester.py /path/to/directory
-    zfs-recordsize-suggester.py -h
 """
     print(help_text)
 
@@ -90,11 +85,18 @@ def scan_directory(directory):
     return counts, total, total_size, file_sizes, dir_count
 
 def human_readable_size(size, decimal_places=2):
-    for unit in ['B', 'K', 'M', 'G', 'T']:
+    for unit in ['B', 'KiB', 'MiB', 'GiB', 'TiB']:
         if size < 1024.0:
             return f"{size:.{decimal_places}f} {unit}"
         size /= 1024.0
-    return f"{size:.{decimal_places}f} P"
+    return f"{size:.{decimal_places}f} PiB"
+
+def human_readable_size_base10(size, decimal_places=2):
+    for unit in ['B', 'KB', 'MB', 'GB', 'TB']:
+        if size < 1000.0:
+            return f"{size:.{decimal_places}f} {unit}"
+        size /= 1000.0
+    return f"{size:.{decimal_places}f} PB"
 
 def compute_median(sizes):
     if not sizes:
@@ -105,11 +107,6 @@ def compute_median(sizes):
         return sizes_sorted[n//2]
     else:
         return (sizes_sorted[n//2 - 1] + sizes_sorted[n//2]) / 2
-
-def get_mode_bucket(counts):
-    if not counts:
-        return None
-    return max(counts, key=counts.get)
 
 def size_to_bytes(size_str):
     mapping = {
@@ -179,11 +176,11 @@ def print_table(counts, total):
         perc = (count / total) * 100 if total > 0 else 0
         data.append((bucket, count, perc))
     data.sort(key=lambda x: x[2], reverse=True)
-
+    
     col1 = 24  # Reduced "File Sizes" column width
     col2 = 11
     col3 = 11
-
+    
     buckets_order = [
         "<1K", "1K–2K", "2K–4K", "4K–8K", "8K–16K", "16K–32K",
         "32K–64K", "64K–128K", "128K–256K", "256K–512K",
@@ -196,11 +193,11 @@ def print_table(counts, total):
         "\033[37m", "\033[90m", "\033[38;5;208m", "\033[38;5;141m"
     ]
     bucket_color_map = {bucket: colors[i % len(colors)] for i, bucket in enumerate(buckets_order)}
-
+    
     reset = "\033[0m"
     separator = f"+{'-'*(col1+2)}+{'-'*(col2+2)}+{'-'*(col3+2)}+"
     header = f"| {'File Sizes'.ljust(col1)} | {'Files'.rjust(col2)} | {'Percent ↓'.rjust(col3)} |"
-
+    
     print("\nFile Size Breakdown:")
     print(separator)
     print(header)
@@ -221,17 +218,17 @@ def compute_mode_candidate(counts, total):
         "2K–4K": "8K",
         "4K–8K": "8K",
         "8K–16K": "16K",
-        "16K–32K": "16K",
-        "32K–64K": "32K",
-        "64K–128K": "64K",
-        "128K–256K": "128K",
-        "256K–512K": "256K",
-        "512K–1M": "512K",
-        "1M–2M": "1M",
-        "2M–4M": "1M",
-        "4M–8M": "1M",
-        "8M–16M": "1M",
-        ">16M": "1M"
+        "16K–32K": "32K",
+        "32K–64K": "64K",
+        "64K–128K": "128K",
+        "128K–256K": "256K",
+        "256K–512K": "512K",
+        "512K–1M": "1M",
+        "1M–2M": "2M",
+        "2M–4M": "4M",
+        "4M–8M": "8M",
+        "8M–16M": "16M",
+        ">16M": "16M"
     }
     bucket_list = [(bucket, count) for bucket, count in counts.items()]
     bucket_list.sort(key=lambda x: x[1], reverse=True)
@@ -277,7 +274,7 @@ def print_waste_table(file_sizes, candidate_data):
     col3 = 12  # Overhead column width
     separator = f"+{'-'*(col1+2)}+{'-'*(col2+2)}+{'-'*(col3+2)}+"
     header = f"| {'Candidate'.center(col1)} | {'Total Wasted'.center(col2)} | {'Overhead ↑'.center(col3)} |"
-
+    
     buckets_order = [
         "<1K", "1K–2K", "2K–4K", "4K–8K", "8K–16K", "16K–32K",
         "32K–64K", "64K–128K", "128K–256K", "256K–512K",
@@ -291,7 +288,7 @@ def print_waste_table(file_sizes, candidate_data):
     ]
     bucket_color_map = {bucket: colors[i % len(colors)] for i, bucket in enumerate(buckets_order)}
     reset = "\033[0m"
-
+    
     print("\nWasted Space Analysis:")
     print(separator)
     print(header)
@@ -317,12 +314,12 @@ def compute_final_recommendation(counts, candidate_data):
         cumulative += count
         print(f"  Bucket: {bucket} -> Candidate: {candidate} ({count} files)")
     print(f"Total files in selected buckets: {cumulative} (>= 50% of total files)")
-
+    
     best_candidate, best_overhead, _ = min(candidate_data, key=lambda x: x[2])
     final_bytes = max(size_to_bytes(mode_candidate), size_to_bytes(best_candidate))
     return bytes_to_size(final_bytes), mode_candidate, best_candidate
 
-# Global variable to hold total file count.
+# Global variable for total file count.
 total_files = 0
 
 def main():
@@ -346,13 +343,17 @@ def main():
         median = compute_median(file_sizes)
         hr_avg = human_readable_size(avg)
         hr_med = human_readable_size(median)
-
+        hr_total_base2 = human_readable_size(total_size)
+        hr_total_base10 = human_readable_size_base10(total_size)
+        total_gigabits = total_size * 8 / 1e9
+        
         print("\nStatistics:")
         print(f"Total files: {total}")
         print(f"Total directories: {dir_count}")
+        print(f"Total Dataset Scanned Size: {hr_total_base2} (base 2) / {hr_total_base10} (base 10) / {total_gigabits:.2f} Gb")
         print(f"Average file size: {hr_avg}")
         print(f"Median file size:  {hr_med}")
-
+        
         print("\nRecommendation:")
         print(f"Mode candidate (50% accumulation) is: {mode_candidate}")
         print(f"Wasted space candidate (lowest overhead) is: {best_candidate}")
@@ -368,6 +369,13 @@ def main():
         print("    then choosing the candidate (upper limit) of the highest bucket in that selection.")
         print("  - Wasted space candidate: the recordsize candidate that minimizes wasted space overhead (simulated allocation).")
         print("  The final recommendation is the larger (in bytes) of these two.")
+
+def human_readable_size_base10(size, decimal_places=2):
+    for unit in ['B', 'KB', 'MB', 'GB', 'TB']:
+        if size < 1000.0:
+            return f"{size:.{decimal_places}f} {unit}"
+        size /= 1000.0
+    return f"{size:.{decimal_places}f} PB"
 
 if __name__ == "__main__":
     main()
