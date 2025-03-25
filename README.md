@@ -21,7 +21,6 @@
 
 Please consider reviewing these great articles on how ZFS handles `recordsize` for Datasets!
 
-
 * [Klara Systems - Tuning Recordsize in OpenZFS](https://klarasystems.com/articles/tuning-recordsize-in-openzfs/#:~:text=The%20recordsize%20property%20sets%20the%20maximum)
 * [High-Availability - ZFS Tuning Guide](https://www.high-availability.com/docs/ZFS-Tuning-Guide/#:~:text=ZFS%20on%20linux%20provides%20an,time%20the%20file%20is%20accessed)
 * [OpenZFS Official Docs - Performance Tuning](https://openzfs.github.io/openzfs-docs/Performance%20and%20Tuning/Workload%20Tuning.html)
